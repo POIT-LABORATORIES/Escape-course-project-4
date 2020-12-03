@@ -1,4 +1,5 @@
 ﻿#pragma comment(lib, "d2d1")
+#pragma warning(disable: 4996)
 
 // Escape.cpp : Defines the entry point for the application.
 //
@@ -8,6 +9,7 @@
 #include "framework.h"
 #include "Escape.h"
 #include <d2d1.h>
+#include <winuser.h>
 
 #define MAX_LOADSTRING 100
 
@@ -19,6 +21,8 @@ HWND hMainWnd;
 ID2D1Factory* pD2D1Factory{};
 ID2D1HwndRenderTarget* pRT{};
 ID2D1SolidColorBrush* pBrush{};
+// DPI.
+float dpiX, dpiY;
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -37,6 +41,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE::D2D1_FACTORY_TYPE_SINGLE_THREADED, &pD2D1Factory);
     if (!SUCCEEDED(hr))
         return EXIT_FAILURE;
+    pD2D1Factory->GetDesktopDpi(&dpiX, &dpiY);
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -73,7 +78,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     return (int) msg.wParam;
 }
 
+float ConvertToDipX(float x)
+{
+    return (x * 96.0f) / dpiX;
+}
 
+float ConvertToDipY(float y)
+{
+    return (y * 96.0f) / dpiY;
+}
 
 //
 //  FUNCTION: MyRegisterClass()
@@ -124,7 +137,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    }
 
    // Defining Direct2D objects.
-   HRESULT hr = pD2D1Factory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(), D2D1::HwndRenderTargetProperties(hMainWnd, D2D1::SizeU(1000, 1000)), &pRT);
+   HRESULT hr = pD2D1Factory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(), 
+       D2D1::HwndRenderTargetProperties(hMainWnd, D2D1::SizeU(1000, 1000)), &pRT);
    if (!SUCCEEDED(hr))
        return EXIT_FAILURE;
    pRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::PaleVioletRed), &pBrush);
@@ -166,19 +180,29 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
+    case WM_SIZE:
+        {
+            pRT->Resize(D2D1::SizeU(LOWORD(lParam), HIWORD(lParam)));
+        }
+        break;
     case WM_PAINT:
         {
-        pRT->BeginDraw();
 
-        pRT->FillRectangle(D2D1::RectF(), pBrush);
-
-        pRT->EndDraw();
-            /*
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
-            // TODO: Add any drawing code that uses hdc here...
+        
+            pRT->BeginDraw();
+
+            pRT->Clear(D2D1::ColorF(D2D1::ColorF::White));
+
+            pRT->FillRectangle(D2D1::RectF(ConvertToDipX(50.0f), ConvertToDipY(50.0f), 
+                ConvertToDipX(200.0f), ConvertToDipY(200.0f)), pBrush);
+            pRT->DrawRectangle(D2D1::RectF(ConvertToDipX(300), ConvertToDipY(300), 
+                ConvertToDipX(500), ConvertToDipY(500)), pBrush);
+
+            pRT->EndDraw();
+
             EndPaint(hWnd, &ps);
-            */
         }
         break;
     case WM_DESTROY:
