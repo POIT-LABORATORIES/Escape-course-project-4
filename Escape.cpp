@@ -1,8 +1,13 @@
-﻿// Escape.cpp : Defines the entry point for the application.
+﻿#pragma comment(lib, "d2d1")
+
+// Escape.cpp : Defines the entry point for the application.
 //
+
+
 
 #include "framework.h"
 #include "Escape.h"
+#include <d2d1.h>
 
 #define MAX_LOADSTRING 100
 
@@ -10,6 +15,10 @@
 HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
+HWND hMainWnd;
+ID2D1Factory* pD2D1Factory{};
+ID2D1HwndRenderTarget* pRT{};
+ID2D1SolidColorBrush* pBrush{};
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -25,7 +34,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
-    // TODO: Place code here.
+    HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE::D2D1_FACTORY_TYPE_SINGLE_THREADED, &pD2D1Factory);
+    if (!SUCCEEDED(hr))
+        return EXIT_FAILURE;
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -51,6 +62,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             DispatchMessage(&msg);
         }
     }
+
+    if (pBrush != nullptr)
+        pBrush->Release();
+    if (pD2D1Factory != nullptr)
+        pD2D1Factory->Release();
+    if (pRT != nullptr)
+        pRT->Release();
 
     return (int) msg.wParam;
 }
@@ -97,16 +115,22 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Store instance handle in our global variable
 
-   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+   hMainWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+      CW_USEDEFAULT, 0, 1000, 1000, nullptr, nullptr, hInstance, nullptr);
 
-   if (!hWnd)
+   if (!hMainWnd)
    {
       return FALSE;
    }
 
-   ShowWindow(hWnd, nCmdShow);
-   UpdateWindow(hWnd);
+   // Defining Direct2D objects.
+   HRESULT hr = pD2D1Factory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(), D2D1::HwndRenderTargetProperties(hMainWnd, D2D1::SizeU(1000, 1000)), &pRT);
+   if (!SUCCEEDED(hr))
+       return EXIT_FAILURE;
+   pRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::PaleVioletRed), &pBrush);
+
+   ShowWindow(hMainWnd, nCmdShow);
+   UpdateWindow(hMainWnd);
 
    return TRUE;
 }
@@ -144,10 +168,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_PAINT:
         {
+        pRT->BeginDraw();
+
+        pRT->FillRectangle(D2D1::RectF(), pBrush);
+
+        pRT->EndDraw();
+            /*
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
             // TODO: Add any drawing code that uses hdc here...
             EndPaint(hWnd, &ps);
+            */
         }
         break;
     case WM_DESTROY:
